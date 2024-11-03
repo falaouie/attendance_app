@@ -30,7 +30,7 @@ if __name__ == '__main__':
         # Set window icon explicitly
         window.setWindowIcon(app_icon)
         
-        # window.show()
+        # window.show() moved to ui_components to show after hiding loading screen
 
         # Start the application
         sys.exit(app.exec_())

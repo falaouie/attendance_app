@@ -9,9 +9,9 @@ from loading import LoadingScreen, LoadingSignals
 from datetime import datetime, timedelta
 from pytz import timezone
 from internet_conn import is_internet_available
-from db_manager import fetch_all_staff, update_work_in, update_work_off, sync_staff_data, sync_schedule_data, sync_temp_schedule_data
+from db_manager import fetch_all_staff, update_work_in, update_work_off
 from methods import TimeSync
-from data_sync import DataSync
+from methods import DataSync
 
 class MainWindow(QWidget):
     def resource_path(self, relative_path):
@@ -35,7 +35,7 @@ class MainWindow(QWidget):
         self.beirut_tz = timezone('Asia/Beirut')
         self.current_datetime = self.time_sync.get_current_datetime()
         self.current_date = self.current_datetime.date()
-        print(f"initialized date and time for TimeSync: {self.current_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"initialized date and time : {self.current_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
         # Initialize sync parameters
         self.sync_interval = 300  # 5 minutes in seconds
         self.retry_interval = 60  # 1 minute in seconds
