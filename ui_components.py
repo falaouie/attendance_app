@@ -9,7 +9,7 @@ from PyQt5.QtCore import QTimer, Qt
 from datetime import datetime, timedelta
 from loading import LoadingScreen, LoadingSignals
 from internet_conn import is_internet_available
-from db_manager import fetch_all_staff, update_work_in, update_work_off
+from db_functions import fetch_all_staff, update_work_in, update_work_off
 from methods import TimeSync, DataSync
 
 class MainWindow(QWidget):

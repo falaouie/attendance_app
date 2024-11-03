@@ -2,7 +2,7 @@ import ntplib
 from datetime import datetime, timedelta, timezone as dt_timezone
 from pytz import timezone
 from internet_conn import is_internet_available
-from db_manager import sync_staff_data, sync_schedule_data, sync_temp_schedule_data
+from db_sync import sync_staff_data, sync_schedule_data, sync_temp_schedule_data
 
 class TimeSync:
     def __init__(self):
