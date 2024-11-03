@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from loading import LoadingScreen, LoadingSignals
 from internet_conn import is_internet_available
 from db_functions import fetch_all_staff, update_work_in, update_work_off
-from methods import TimeSync, DataSync
+from Classes import TimeSync, DataSync
 
 class MainWindow(QWidget):
     def resource_path(self, relative_path):
