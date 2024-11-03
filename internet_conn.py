@@ -1,4 +1,4 @@
-# internet_conn.py
+# functions.py
 import socket
 
 def is_internet_available():

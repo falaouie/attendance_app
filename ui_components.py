@@ -1,17 +1,16 @@
 import os
 import sys
 import threading
+from pytz import timezone
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox, QSystemTrayIcon, QMenu
 from PyQt5.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView
 from PyQt5.QtGui import QPixmap, QFont, QIcon
 from PyQt5.QtCore import QTimer, Qt
-from loading import LoadingScreen, LoadingSignals
 from datetime import datetime, timedelta
-from pytz import timezone
+from loading import LoadingScreen, LoadingSignals
 from internet_conn import is_internet_available
 from db_manager import fetch_all_staff, update_work_in, update_work_off
-from methods import TimeSync
-from methods import DataSync
+from methods import TimeSync, DataSync
 
 class MainWindow(QWidget):
     def resource_path(self, relative_path):
@@ -47,7 +46,7 @@ class MainWindow(QWidget):
         
         # Initialize DataSync
         self.data_sync = DataSync(self.current_datetime)
-        print(f"data synchronized successfully at App time: {self.current_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
+ 
         # Create and show loading screen first
         self.loading_screen = LoadingScreen()
         self.loading_screen.show()

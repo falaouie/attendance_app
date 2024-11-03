@@ -3,7 +3,6 @@ import sqlite3
 from datetime import datetime, date
 import requests
 import json
-# import socket
 from internet_conn import is_internet_available
 
 DB_FILE = "attendance.db"
