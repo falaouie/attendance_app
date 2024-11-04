@@ -5,12 +5,42 @@ from pytz import timezone
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox, QSystemTrayIcon, QMenu
 from PyQt5.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView
 from PyQt5.QtGui import QPixmap, QFont, QIcon
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal
 from datetime import datetime, timedelta
 from loading import LoadingScreen, LoadingSignals
 from internet_conn import is_internet_available
 from db_functions import fetch_all_staff, update_work_in, update_work_off
 from Classes import TimeSync, DataSync
+
+class NTPSyncWorker(QThread):
+    finished = pyqtSignal(object)  # Signal to emit the NTP time result
+    progress = pyqtSignal(int)     # Signal for progress updates
+    status = pyqtSignal(str)       # Signal for status messages
+    
+    def __init__(self, time_sync):
+        super().__init__()
+        self.time_sync = time_sync
+    
+    def run(self):
+        try:
+            self.status.emit("Syncing with NTP servers...")
+            self.progress.emit(85)
+            
+            ntp_time = self.time_sync.sync_with_ntp()
+            
+            self.progress.emit(95)
+            self.status.emit("Loading complete!")
+            self.progress.emit(100)
+            
+            # Emit the result (could be None if sync failed)
+            self.finished.emit(ntp_time)
+            
+        except Exception as e:
+            print(f"Error during NTP sync: {str(e)}")
+            self.progress.emit(95)
+            self.status.emit("Loading complete!")
+            self.progress.emit(100)
+            self.finished.emit(None)
 
 class MainWindow(QWidget):
     def resource_path(self, relative_path):
@@ -73,6 +103,21 @@ class MainWindow(QWidget):
             print(f"Error during finish loading: {str(e)}")
             self.show_window()
 
+    def handle_ntp_sync_complete(self, ntp_time):
+        """Handler for NTP sync completion - this needs to be a class method"""
+        if ntp_time:
+            self.current_datetime = ntp_time
+            print(f"NTP sync successful: {self.current_datetime}")
+        else:
+            print("NTP sync failed, using system time")
+        
+        # Clean up the worker
+        if hasattr(self, 'ntp_worker'):
+            self.ntp_worker.deleteLater()
+        
+        # Signal that loading is complete
+        self.loading_signals.finished.emit()
+
     def initialize_app(self):
         # Helper function to chain delayed actions
         def schedule_next_stage(delay, callback):
@@ -133,34 +178,22 @@ class MainWindow(QWidget):
         
         # Stage 9: NTP sync (85%)
         def stage9():
-            self.loading_signals.status.emit("Syncing with NTP servers...")
+            self.loading_signals.status.emit("Preparing NTP sync...")
             self.loading_signals.progress.emit(85)
-            perform_ntp_sync()
-        
-        def perform_ntp_sync():
-            try:
-                ntp_time = self.time_sync.sync_with_ntp()
-                if ntp_time:
-                    self.current_datetime = ntp_time
-                    
-                # Final stages with delays
-                QTimer.singleShot(0, lambda: self.loading_signals.progress.emit(95))
-                QTimer.singleShot(0, lambda: self.loading_signals.status.emit("Loading complete!"))
-                QTimer.singleShot(0, lambda: self.loading_signals.progress.emit(100))
-                QTimer.singleShot(0, lambda: self.loading_signals.finished.emit())
-                    
-            except Exception as e:
-                print(f"Error during NTP sync: {str(e)}")
-                QTimer.singleShot(0, lambda: self.loading_signals.progress.emit(95))
-                QTimer.singleShot(0, lambda: self.loading_signals.status.emit("Loading complete!"))
-                QTimer.singleShot(0, lambda: self.loading_signals.progress.emit(100))
-                QTimer.singleShot(0, lambda: self.loading_signals.finished.emit())
+            
+            # Create and configure the NTP sync worker
+            self.ntp_worker = NTPSyncWorker(self.time_sync)
+            
+            # Connect worker signals
+            self.ntp_worker.finished.connect(self.handle_ntp_sync_complete)
+            self.ntp_worker.progress.connect(lambda v: self.loading_signals.progress.emit(v))
+            self.ntp_worker.status.connect(lambda s: self.loading_signals.status.emit(s))
+            
+            # Start the worker
+            self.ntp_worker.start()
         
         # Start the chain of stages
         stage1()
-
-        # Start NTP sync in background thread
-        threading.Thread(target=perform_ntp_sync, daemon=True).start()
 
     def initUI(self):
         self.setWindowTitle("Silver Attendance")
