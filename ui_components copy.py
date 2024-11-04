@@ -74,90 +74,58 @@ class MainWindow(QWidget):
             self.show_window()
 
     def initialize_app(self):
-        # Helper function to chain delayed actions
-        def schedule_next_stage(delay, callback):
-            QTimer.singleShot(delay, callback)
+        # Basic initialization (10%)
+        self.loading_screen.set_loading_text("Initializing application...")
+        self.loading_screen.set_progress(10)
         
-        # Stage 1: Basic initialization (10%)
-        def stage1():
-            self.loading_screen.set_loading_text("Initializing application...")
-            self.loading_screen.set_progress(10)
-            schedule_next_stage(0, stage2)  # put 1000 instead of 0 to Wait 1 second before next stage
+        # UI Setup (15%)
+        self.loading_screen.set_loading_text("Setting up user interface...")
+        self.loading_screen.set_progress(15)
+        self.initUI()
         
-        # Stage 2: UI Setup (15%)
-        def stage2():
-            self.loading_screen.set_loading_text("Setting up user interface...")
-            self.loading_screen.set_progress(15)
-            self.initUI()
-            schedule_next_stage(0, stage3)
+        # System tray (20%)
+        self.loading_screen.set_loading_text("Configuring system tray...")
+        self.loading_screen.set_progress(20)
+        self.setup_system_tray()
         
-        # Stage 3: System tray (20%)
-        def stage3():
-            self.loading_screen.set_loading_text("Configuring system tray...")
-            self.loading_screen.set_progress(20)
-            self.setup_system_tray()
-            schedule_next_stage(0, stage4)
+        # Timers (25%)
+        self.loading_screen.set_loading_text("Initializing timers...")
+        self.loading_screen.set_progress(25)
+        self.setup_timers()
         
-        # Stage 4: Timers (25%)
-        def stage4():
-            self.loading_screen.set_loading_text("Initializing timers...")
-            self.loading_screen.set_progress(25)
-            self.setup_timers()
-            schedule_next_stage(0, stage5)
+        # Data sync (30-70%)
+        self.loading_screen.set_loading_text("Syncing data...")
+        self.loading_screen.set_progress(30)
+        self.sync_data()
+        self.loading_screen.set_progress(70)
+
+        # Time sync (75-95%)
+        self.loading_screen.set_loading_text("Updating time...")
+        self.loading_screen.set_progress(75)
+        self.current_datetime = self.time_sync.sync_with_system_time()
         
-        # Stage 5: Start Data sync (30%)
-        def stage5():
-            self.loading_screen.set_loading_text("Starting data synchronization...")
-            self.loading_screen.set_progress(30)
-            schedule_next_stage(0, stage6)
-        
-        # Stage 6: Data sync progress (50%)
-        def stage6():
-            self.loading_screen.set_loading_text("Syncing data...")
-            self.loading_screen.set_progress(50)
-            self.sync_data()
-            schedule_next_stage(0, stage7)
-        
-        # Stage 7: Data sync completion (70%)
-        def stage7():
-            self.loading_screen.set_loading_text("Completing data synchronization...")
-            self.loading_screen.set_progress(70)
-            schedule_next_stage(0, stage8)
-        
-        # Stage 8: Time sync (75%)
-        def stage8():
-            self.loading_screen.set_loading_text("Updating time...")
-            self.loading_screen.set_progress(75)
-            self.current_datetime = self.time_sync.sync_with_system_time()
-            schedule_next_stage(0, stage9)
-        
-        # Stage 9: NTP sync (85%)
-        def stage9():
-            self.loading_signals.status.emit("Syncing with NTP servers...")
-            self.loading_signals.progress.emit(85)
-            perform_ntp_sync()
+        self.loading_signals.status.emit("Syncing with NTP servers...")
         
         def perform_ntp_sync():
             try:
                 ntp_time = self.time_sync.sync_with_ntp()
                 if ntp_time:
                     self.current_datetime = ntp_time
-                    
-                # Final stages with delays
-                QTimer.singleShot(0, lambda: self.loading_signals.progress.emit(95))
-                QTimer.singleShot(0, lambda: self.loading_signals.status.emit("Loading complete!"))
-                QTimer.singleShot(0, lambda: self.loading_signals.progress.emit(100))
-                QTimer.singleShot(0, lambda: self.loading_signals.finished.emit())
-                    
+                    self.loading_signals.progress.emit(85)
+                
+                self.loading_signals.progress.emit(95)
+                self.loading_signals.status.emit("Loading complete!")
+                self.loading_signals.progress.emit(100)
+                
+                # Signal completion
+                self.loading_signals.finished.emit()
+                
             except Exception as e:
                 print(f"Error during NTP sync: {str(e)}")
-                QTimer.singleShot(0, lambda: self.loading_signals.progress.emit(95))
-                QTimer.singleShot(0, lambda: self.loading_signals.status.emit("Loading complete!"))
-                QTimer.singleShot(0, lambda: self.loading_signals.progress.emit(100))
-                QTimer.singleShot(0, lambda: self.loading_signals.finished.emit())
-        
-        # Start the chain of stages
-        stage1()
+                self.loading_signals.progress.emit(95)
+                self.loading_signals.status.emit("Loading complete!")
+                self.loading_signals.progress.emit(100)
+                self.loading_signals.finished.emit()
 
         # Start NTP sync in background thread
         threading.Thread(target=perform_ntp_sync, daemon=True).start()
