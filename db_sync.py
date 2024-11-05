@@ -43,7 +43,6 @@ def sync_staff_data():
 
                 # Insert or update staff from remote API
                 for staff_id, (first_name, last_name) in remote_staff_dict.items():
-                    print(f"Processing staff from remote: {staff_id}, {first_name}, {last_name}")
                     cursor.execute('''
                         INSERT INTO staff_tbl (staff_id, first_name, last_name)
                         VALUES (?, ?, ?)
@@ -56,16 +55,11 @@ def sync_staff_data():
                 local_staff_ids = set(local_staff_dict.keys())
                 remote_staff_ids = set(remote_staff_dict.keys())
 
-                print("Local staff IDs:", local_staff_ids)
-                print("Remote staff IDs:", remote_staff_ids)
-
                 # Calculate the difference between local and remote staff_ids
                 staff_ids_to_delete = local_staff_ids - remote_staff_ids
-                print("Staff IDs to delete:", staff_ids_to_delete)
 
                 # Delete staff that are in local but not in remote
                 for staff_id in staff_ids_to_delete:
-                    print(f"Deleting staff from local: {staff_id}")
                     cursor.execute('DELETE FROM staff_tbl WHERE staff_id = ?', (staff_id,))
 
                 # Commit the transaction
