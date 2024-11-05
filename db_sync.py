@@ -21,26 +21,81 @@ def sync_staff_data():
 
         if data['status'] == 'success':
             conn = sqlite3.connect(DB_FILE)
+
+            # Increase timeout to handle potential lock issues
+            conn.execute('PRAGMA busy_timeout = 5000')
+
             cursor = conn.cursor()
 
-            cursor.execute('DELETE FROM staff_tbl')
+            try:
+                # Begin a transaction
+                conn.execute('BEGIN TRANSACTION')
 
-            for staff in data['data']:
-                cursor.execute('''
-                    INSERT INTO staff_tbl (staff_id, first_name, last_name)
-                    VALUES (?, ?, ?)
-                ''', (staff['staff_id'], staff['first_name'], staff['last_name']))
+                # Fetch all local staff_ids
+                cursor.execute('SELECT staff_id, first_name, last_name FROM staff_tbl')
+                local_staff = cursor.fetchall()
 
-            conn.commit()
-            conn.close()
+                local_staff_dict = {row[0]: (row[1], row[2]) for row in local_staff}
+                remote_staff_dict = {staff['staff_id']: (staff['first_name'], staff['last_name']) for staff in data['data']}
+
+                # Convert remote staff IDs to integers for consistency with local IDs
+                remote_staff_dict = {int(staff['staff_id']): (staff['first_name'], staff['last_name']) for staff in data['data']}
+
+                # Insert or update staff from remote API
+                for staff_id, (first_name, last_name) in remote_staff_dict.items():
+                    print(f"Processing staff from remote: {staff_id}, {first_name}, {last_name}")
+                    cursor.execute('''
+                        INSERT INTO staff_tbl (staff_id, first_name, last_name)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(staff_id) 
+                        DO UPDATE SET first_name = excluded.first_name, last_name = excluded.last_name
+                        WHERE first_name != excluded.first_name OR last_name != excluded.last_name
+                    ''', (staff_id, first_name, last_name))
+
+                # Identify records that are in the local database but not in the remote data
+                local_staff_ids = set(local_staff_dict.keys())
+                remote_staff_ids = set(remote_staff_dict.keys())
+
+                print("Local staff IDs:", local_staff_ids)
+                print("Remote staff IDs:", remote_staff_ids)
+
+                # Calculate the difference between local and remote staff_ids
+                staff_ids_to_delete = local_staff_ids - remote_staff_ids
+                print("Staff IDs to delete:", staff_ids_to_delete)
+
+                # Delete staff that are in local but not in remote
+                for staff_id in staff_ids_to_delete:
+                    print(f"Deleting staff from local: {staff_id}")
+                    cursor.execute('DELETE FROM staff_tbl WHERE staff_id = ?', (staff_id,))
+
+                # Commit the transaction
+                conn.commit()
+
+            except sqlite3.IntegrityError as e:
+                # Handle unique constraint failure or other integrity errors
+                print(f"Integrity error: {str(e)}")
+                conn.rollback()
+                return False
+
+            except sqlite3.Error as e:
+                # Rollback the transaction if any other database error occurs
+                conn.rollback()
+                print(f"Database error: {str(e)}")
+                return False
+
+            finally:
+                # Always close the connection
+                conn.close()
+
             return True
+
     except requests.RequestException as e:
         print(f"Error syncing staff data: {str(e)}")
     except sqlite3.Error as e:
         print(f"Database error: {str(e)}")
     except json.JSONDecodeError as e:
         print(f"JSON decoding error: {str(e)}")
-    
+
     return False
 
 def sync_schedule_data():
