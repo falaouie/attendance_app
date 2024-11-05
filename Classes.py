@@ -1,6 +1,7 @@
 import ntplib
 from datetime import datetime, timedelta, timezone as dt_timezone
 from pytz import timezone
+from PyQt5.QtCore import QThread, pyqtSignal
 from internet_conn import is_internet_available
 from db_sync import sync_staff_data, sync_schedule_data, sync_temp_schedule_data
 
@@ -89,3 +90,34 @@ class DataSync:
         else:
             print(f"No internet connection. Using local data. {app_time.strftime('%Y-%m-%d %H:%M:%S')}")
             return False
+        
+
+class NTPSyncWorker(QThread):
+    finished = pyqtSignal(object)  # Signal to emit the NTP time result
+    progress = pyqtSignal(int)     # Signal for progress updates
+    status = pyqtSignal(str)       # Signal for status messages
+    
+    def __init__(self, time_sync):
+        super().__init__()
+        self.time_sync = time_sync
+    
+    def run(self):
+        try:
+            self.status.emit("Syncing with NTP servers...")
+            self.progress.emit(85)
+            
+            ntp_time = self.time_sync.sync_with_ntp()
+            
+            self.progress.emit(95)
+            self.status.emit("Loading complete!")
+            self.progress.emit(100)
+            
+            # Emit the result (could be None if sync failed)
+            self.finished.emit(ntp_time)
+            
+        except Exception as e:
+            print(f"Error during NTP sync: {str(e)}")
+            self.progress.emit(95)
+            self.status.emit("Loading complete!")
+            self.progress.emit(100)
+            self.finished.emit(None)
