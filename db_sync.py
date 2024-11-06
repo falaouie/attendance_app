@@ -7,6 +7,7 @@ from db_manager import DB_FILE
 API_URL = "http://silverstage.alawiyeh.com/sync_staff.php"
 SCHEDULES_API_URL = "http://silverstage.alawiyeh.com/sync_schedules.php"
 TEMP_SCHEDULES_API_URL = "http://silverstage.alawiyeh.com/sync_temp_schedules.php"
+# SYNC_STATUS_API_URL = ""
 
 def sync_staff_data():
     """Sync staff data from the remote API to the local database."""
@@ -93,12 +94,13 @@ def sync_staff_data():
     return False
 
 def sync_schedule_data():
-    """Sync schedule data from the remote API to the local database."""
+    """Sync all schedule data from the remote API to the local database."""
     if not is_internet_available():
         print("No internet connection. Skipping schedule data sync.")
         return False
 
     try:
+        # Fetch all schedule records from the remote API
         response = requests.get(SCHEDULES_API_URL, timeout=10)
         response.raise_for_status()
         data = response.json()
@@ -107,28 +109,64 @@ def sync_schedule_data():
             conn = sqlite3.connect(DB_FILE)
             cursor = conn.cursor()
 
-            cursor.execute('DELETE FROM staff_schedule')
+            # Step 1: Fetch all local schedule data
+            cursor.execute('SELECT staff_id, day_of_week FROM staff_schedule')
+            local_schedule_data = cursor.fetchall()
+            local_schedule_dict = {(int(staff_id), int(day_of_week)) for staff_id, day_of_week in local_schedule_data}
+
+            # Step 2: Prepare remote schedule data and track keys
+            remote_schedule_dict = set()
 
             for schedule in data['data']:
+                staff_id = int(schedule['staff_id'])
                 day_of_week = int(schedule['work_day'])
-                if 0 <= day_of_week <= 6:
+
+                remote_schedule_dict.add((staff_id, day_of_week))
+
+                # Check if the staff_id and day_of_week exists in the local schedule
+                cursor.execute('SELECT COUNT(1) FROM staff_schedule WHERE staff_id = ? AND day_of_week = ?', (staff_id, day_of_week))
+                exists = cursor.fetchone()[0]
+
+                if exists:
+                    # Update the existing record
+                    cursor.execute('''
+                        UPDATE staff_schedule
+                        SET scheduled_in = ?, scheduled_out = ?, day_off = ?, open_schedule = ?
+                        WHERE staff_id = ? AND day_of_week = ?
+                    ''', (
+                        schedule['start_time'] if not int(schedule['day_off']) and not int(schedule['open_schedule']) else None,
+                        schedule['end_time'] if not int(schedule['day_off']) and not int(schedule['open_schedule']) else None,
+                        int(schedule['day_off']),
+                        int(schedule['open_schedule']),
+                        staff_id,
+                        day_of_week
+                    ))
+                else:
+                    # Insert new record if staff_id and day_of_week combination does not exist
                     cursor.execute('''
                         INSERT INTO staff_schedule (staff_id, day_of_week, scheduled_in, scheduled_out, day_off, open_schedule)
                         VALUES (?, ?, ?, ?, ?, ?)
                     ''', (
-                        schedule['staff_id'],
+                        staff_id,
                         day_of_week,
                         schedule['start_time'] if not int(schedule['day_off']) and not int(schedule['open_schedule']) else None,
                         schedule['end_time'] if not int(schedule['day_off']) and not int(schedule['open_schedule']) else None,
                         int(schedule['day_off']),
                         int(schedule['open_schedule'])
                     ))
-                else:
-                    print(f"Invalid work day: {day_of_week}")
 
+            # Step 3: Identify records that are in the local database but not in the remote data
+            records_to_delete = local_schedule_dict - remote_schedule_dict
+
+            # Step 4: Delete records that are in local but not in remote
+            for staff_id, day_of_week in records_to_delete:
+                cursor.execute('DELETE FROM staff_schedule WHERE staff_id = ? AND day_of_week = ?', (staff_id, day_of_week))
+
+            # Commit the changes to the local database
             conn.commit()
             conn.close()
             return True
+
     except requests.RequestException as e:
         print(f"Error syncing schedule data: {str(e)}")
     except sqlite3.Error as e:
@@ -139,8 +177,9 @@ def sync_schedule_data():
         print(f"Key error in schedule data: {str(e)}")
     except ValueError as e:
         print(f"Value error in schedule data: {str(e)}")
-    
+
     return False
+
 
 def sync_temp_schedule_data():
     """Sync temporary schedule data from the remote API to the local database."""
@@ -161,15 +200,13 @@ def sync_temp_schedule_data():
             for schedule in data['data']:
                 try:
                     cursor.execute('''
-                        INSERT INTO temp_schedule (staff_id, date, scheduled_in, scheduled_out, day_off, reason_id, open_schedule)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO temp_schedule (staff_id, scheduled_in, scheduled_out, day_off, open_schedule)
+                        VALUES (?, ?, ?, ?, ?)
                     ''', (
                         schedule['staff_id'],
-                        schedule['date'],
                         schedule['scheduled_in'] if not int(schedule['day_off']) and not int(schedule['open_schedule']) else None,
                         schedule['scheduled_out'] if not int(schedule['day_off']) and not int(schedule['open_schedule']) else None,
                         int(schedule['day_off']),
-                        schedule.get('reason_id'),
                         int(schedule['open_schedule'])
                     ))
                 except Exception as e:

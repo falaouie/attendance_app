@@ -323,7 +323,7 @@ class MainWindow(QWidget):
             self.table.setRowCount(0)
             row_height = 60
 
-            for row, (staff_id, first_name, last_name, sched_in, sched_out, work_in, work_off, hours_worked, day_off, reason_id, open_schedule) in enumerate(self.staff_data):
+            for row, (staff_id, first_name, last_name, sched_in, sched_out, work_in, work_off, hours_worked, day_off, open_schedule) in enumerate(self.staff_data):
                 self.table.insertRow(row)
                 self.table.setRowHeight(row, row_height)
 

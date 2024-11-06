@@ -20,16 +20,14 @@ def fetch_all_staff(target_date=None):
                staff_attendance.work_in, staff_attendance.work_off, 
                staff_attendance.hours_worked, 
                COALESCE(temp_schedule.day_off, staff_schedule.day_off, 0) as day_off,
-               temp_schedule.reason_id,
                COALESCE(temp_schedule.open_schedule, staff_schedule.open_schedule, 0) as open_schedule
         FROM staff_tbl
         LEFT JOIN staff_schedule ON staff_tbl.staff_id = staff_schedule.staff_id
             AND staff_schedule.day_of_week = ?
         LEFT JOIN temp_schedule ON staff_tbl.staff_id = temp_schedule.staff_id
-            AND temp_schedule.date = ?
         LEFT JOIN staff_attendance ON staff_tbl.staff_id = staff_attendance.staff_id
             AND staff_attendance.date = ?
-    ''', (day_of_week, target_date, target_date))
+    ''', (day_of_week, target_date))
     
     rows = cursor.fetchall()
     conn.close()
