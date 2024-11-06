@@ -182,85 +182,54 @@ def sync_schedule_data():
 
 
 def sync_temp_schedule_data():
-    """Sync staff data from the remote API to the local database."""
+    """Sync temporary schedule data from the remote API to the local database."""
     if not is_internet_available():
-        print("No internet connection. Skipping staff data sync.")
+        print("No internet connection. Skipping temporary schedule data sync.")
         return False
 
     try:
-        response = requests.get(TEMP_SCHEDULES_API_URL, timeout=5000)
+        response = requests.get(TEMP_SCHEDULES_API_URL, timeout=10)
         response.raise_for_status()
         data = response.json()
 
         if data['status'] == 'success':
             conn = sqlite3.connect(DB_FILE)
-
-            # Increase timeout to handle potential lock issues
-            conn.execute('PRAGMA busy_timeout = 5000')
-
             cursor = conn.cursor()
+            cursor.execute('DELETE FROM temp_schedule')
 
-            try:
-                # Begin a transaction
-                conn.execute('BEGIN TRANSACTION')
-
-                # Fetch all local temp schedule
-                cursor.execute('SELECT staff_id, scheduled_in, scheduled_out, day_off, open_schedule FROM temp_schedule')
-                local_temp_schedule = cursor.fetchall()
-
-                local_temp_schedule_dict = {row[0]: (row[1], row[2], row[3], row[4]) for row in local_temp_schedule}
-                remote_temp_schedule_dict = {staff['staff_id']: (staff['scheduled_in'], staff['scheduled_out'], staff['day_off'], staff['open_schedule']) for staff in data['data']}
-
-                # Convert remote staff IDs to integers for consistency with local IDs
-                remote_temp_schedule_dict = {int(staff['staff_id']): (staff['scheduled_in'], staff['scheduled_out'], staff['day_off'], staff['open_schedule']) for staff in data['data']}
-
-                # Insert or update staff from remote API
-                for staff_id, (scheduled_in, scheduled_out, day_off, open_schedule) in remote_temp_schedule_dict.items():
+            for schedule in data['data']:
+                try:
                     cursor.execute('''
                         INSERT INTO temp_schedule (staff_id, scheduled_in, scheduled_out, day_off, open_schedule)
                         VALUES (?, ?, ?, ?, ?)
-                        ON CONFLICT(staff_id) 
-                        DO UPDATE SET scheduled_in = excluded.scheduled_in, scheduled_out = excluded.scheduled_out, day_off = excluded.day_off, open_schedule = excluded.open_schedule
-                        WHERE scheduled_in != excluded.scheduled_in OR scheduled_out != excluded.scheduled_out OR day_off != excluded.day_off OR open_schedule != excluded.open_schedule
-                    ''', (staff_id, scheduled_in, scheduled_out, day_off, open_schedule))
+                    ''', (
+                        schedule['staff_id'],
+                        schedule['scheduled_in'] if not int(schedule['day_off']) and not int(schedule['open_schedule']) else None,
+                        schedule['scheduled_out'] if not int(schedule['day_off']) and not int(schedule['open_schedule']) else None,
+                        int(schedule['day_off']),
+                        int(schedule['open_schedule'])
+                    ))
+                except Exception as e:
+                    print(f"Error inserting record: {e}")
+                    print(f"Problematic record: {schedule}")
 
-                # Identify records that are in the local database but not in the remote data
-                local_staff_ids = set(local_temp_schedule_dict.keys())
-                remote_staff_ids = set(remote_temp_schedule_dict.keys())
-
-                # Calculate the difference between local and remote staff_ids
-                staff_ids_to_delete = local_staff_ids - remote_staff_ids
-
-                # Delete staff that are in local but not in remote
-                for staff_id in staff_ids_to_delete:
-                    cursor.execute('DELETE FROM temp_schedule WHERE staff_id = ?', (staff_id,))
-
-                # Commit the transaction
-                conn.commit()
-
-            except sqlite3.IntegrityError as e:
-                # Handle unique constraint failure or other integrity errors
-                print(f"Integrity error: {str(e)}")
-                conn.rollback()
-                return False
-
-            except sqlite3.Error as e:
-                # Rollback the transaction if any other database error occurs
-                conn.rollback()
-                print(f"Database error: {str(e)}")
-                return False
-
-            finally:
-                # Always close the connection
-                conn.close()
-
+            conn.commit()
+            conn.close()
             return True
-
+        else:
+            print(f"API returned non-success status: {data.get('status')}")
+            print(f"API message: {data.get('message', 'No message provided')}")
     except requests.RequestException as e:
-        print(f"Error syncing staff data: {str(e)}")
+        print(f"Request error syncing temporary schedule data: {str(e)}")
     except sqlite3.Error as e:
         print(f"Database error: {str(e)}")
     except json.JSONDecodeError as e:
         print(f"JSON decoding error: {str(e)}")
-
+    except KeyError as e:
+        print(f"Key error in temporary schedule data: {str(e)}")
+    except ValueError as e:
+        print(f"Value error in temporary schedule data: {str(e)}")
+    except Exception as e:
+        print(f"Unexpected error in sync_temp_schedule_data: {str(e)}")
+    
     return False
