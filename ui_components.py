@@ -37,7 +37,8 @@ class MainWindow(QWidget):
         self.current_date = self.current_datetime.date()
         print(f"initialized date and time : {self.current_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
         # Initialize sync parameters
-        self.sync_interval = 300  # 5 minutes in seconds
+        self.time_sync_interval = 300  # 5 minutes in seconds
+        self.data_sync_interval = 120 # 2 minutes in seconds
         self.retry_interval = 60  # 1 minute in seconds
         self.max_retries = 5
         self.retries = 0
@@ -223,12 +224,13 @@ class MainWindow(QWidget):
         # Timer for periodic time syncing
         self.time_sync_timer = QTimer(self)
         self.time_sync_timer.timeout.connect(self.periodic_time_sync_attempt)
-        self.time_sync_timer.start(self.sync_interval * 1000)
+        self.time_sync_timer.start(self.time_sync_interval * 1000)
 
-        # Timer for periodic data syncing - FIXED interval to match original
+        # Timer for periodic data syncing
         self.data_sync_timer = QTimer(self)
         self.data_sync_timer.timeout.connect(self.check_data_sync)
-        self.data_sync_timer.start(30 * 1000)  # 30 seconds, same as original
+        self.data_sync_timer.setTimerType(Qt.PreciseTimer)
+        self.data_sync_timer.start(self.data_sync_interval * 1000) 
 
         # Timer for periodic internet connection check
         self.internet_check_timer = QTimer(self)
@@ -254,8 +256,13 @@ class MainWindow(QWidget):
         ntp_time = self.time_sync.sync_with_ntp()
         if ntp_time:
             self.retries = 0  # Reset retry counter on success
+            time_diff = ntp_time - self.current_datetime
             self.current_datetime = ntp_time
-            print(f"Periodic time sync successful at {self.current_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Periodic time sync successful at {self.current_datetime}")
+            
+            # If time difference is significant, restart the data sync timer
+            if abs(time_diff.total_seconds()) > 1:
+                self.data_sync_timer.start()  # Restart the timer to maintain consistent intervals
         else:
             print("Failed to sync time. Starting retry process...")
             self.retry_time_sync()
@@ -505,9 +512,6 @@ class MainWindow(QWidget):
         self.activateWindow()  # Bring the window to the foreground
         self.raise_()  # Raise the window to the top of the window stack 
 
-    def minimize_to_taskbar(self):
-        self.showMinimized()
-
     def close_application(self):
         self.clock_timer.stop()
         self.time_sync_timer.stop()  # Updated name
@@ -519,3 +523,6 @@ class MainWindow(QWidget):
         event.ignore()
         self.minimize_to_taskbar()
         self.tray_icon.showMessage("Silver Attendance", "Application minimized to taskbar", QSystemTrayIcon.Information, 2000)
+
+    def minimize_to_taskbar(self):
+        self.showMinimized()
