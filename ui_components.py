@@ -1,7 +1,7 @@
 import os
 import sys
 from pytz import timezone
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox, QSystemTrayIcon
 from PyQt5.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView
 from PyQt5.QtGui import QPixmap, QFont, QIcon
 from PyQt5.QtCore import QTimer, Qt
