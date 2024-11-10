@@ -1,7 +1,7 @@
 import os
 import sys
 from pytz import timezone
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox, QSystemTrayIcon, QMenu
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
 from PyQt5.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView
 from PyQt5.QtGui import QPixmap, QFont, QIcon
 from PyQt5.QtCore import QTimer, Qt
@@ -10,7 +10,7 @@ from loading import LoadingScreen, LoadingSignals
 from internet_conn import is_internet_available
 from db_functions import fetch_all_staff, update_work_in, update_work_off
 from Classes import TimeSync, DataSync, NTPSyncWorker
-from utilities import format_time, compare_times, resource_path
+from utilities import format_time, compare_times, resource_path, setup_system_tray
 
 class MainWindow(QWidget):
     
@@ -103,7 +103,7 @@ class MainWindow(QWidget):
         def stage3():
             self.loading_screen.set_loading_text("Configuring system tray...")
             self.loading_screen.set_progress(20)
-            self.setup_system_tray()
+            setup_system_tray(self)
             schedule_next_stage(0, stage4)
         
         # Stage 4: Timers (25%)
@@ -195,16 +195,6 @@ class MainWindow(QWidget):
 
         self.setLayout(main_layout)
         self.populate_table()
-
-    def setup_system_tray(self):
-        self.tray_icon = QSystemTrayIcon(QIcon(resource_path("images/sys_icon.ico")), self)
-        tray_menu = QMenu()
-        show_action = tray_menu.addAction("Show")
-        show_action.triggered.connect(self.show_window)
-        exit_action = tray_menu.addAction("Exit")
-        exit_action.triggered.connect(self.close_application)
-        self.tray_icon.setContextMenu(tray_menu)
-        self.tray_icon.show()
 
     def setup_timers(self):
         # Timer for updating internal clock every second

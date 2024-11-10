@@ -2,6 +2,8 @@
 import os
 import sys
 from datetime import datetime
+from PyQt5.QtWidgets import QSystemTrayIcon, QMenu
+from PyQt5.QtGui import QIcon
 
 def format_time(time_str):
         if not time_str:
@@ -29,3 +31,13 @@ def resource_path(relative_path):
         except Exception:
             base_path = os.path.abspath(".")
         return os.path.join(base_path, relative_path)
+
+def setup_system_tray(self):
+        self.tray_icon = QSystemTrayIcon(QIcon(resource_path("images/sys_icon.ico")), self)
+        tray_menu = QMenu()
+        show_action = tray_menu.addAction("Show")
+        show_action.triggered.connect(self.show_window)
+        exit_action = tray_menu.addAction("Exit")
+        exit_action.triggered.connect(self.close_application)
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.show()
