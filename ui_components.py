@@ -1,27 +1,18 @@
 import os
 import sys
-import threading
 from pytz import timezone
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox, QSystemTrayIcon, QMenu
 from PyQt5.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView
 from PyQt5.QtGui import QPixmap, QFont, QIcon
-from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal
+from PyQt5.QtCore import QTimer, Qt
 from datetime import datetime, timedelta
 from loading import LoadingScreen, LoadingSignals
 from internet_conn import is_internet_available
 from db_functions import fetch_all_staff, update_work_in, update_work_off
 from Classes import TimeSync, DataSync, NTPSyncWorker
-
+from utilities import format_time, compare_times, resource_path
 
 class MainWindow(QWidget):
-    def resource_path(self, relative_path):
-        """ Get absolute path to resource, works for dev and for PyInstaller """
-        try:
-            # PyInstaller creates a temp folder and stores path in _MEIPASS
-            base_path = sys._MEIPASS
-        except Exception:
-            base_path = os.path.abspath(".")
-        return os.path.join(base_path, relative_path)
     
     def __init__(self):
         super().__init__()
@@ -183,7 +174,7 @@ class MainWindow(QWidget):
 
         # Logo
         logo_label = QLabel(self)
-        pixmap = QPixmap(self.resource_path("images/logo.png"))
+        pixmap = QPixmap(resource_path("images/logo.png"))
         logo_label.setPixmap(pixmap)
         logo_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(logo_label)
@@ -206,7 +197,7 @@ class MainWindow(QWidget):
         self.populate_table()
 
     def setup_system_tray(self):
-        self.tray_icon = QSystemTrayIcon(QIcon(self.resource_path("images/sys_icon.ico")), self)
+        self.tray_icon = QSystemTrayIcon(QIcon(resource_path("images/sys_icon.ico")), self)
         tray_menu = QMenu()
         show_action = tray_menu.addAction("Show")
         show_action.triggered.connect(self.show_window)
@@ -343,10 +334,10 @@ class MainWindow(QWidget):
                     self.display_day_off(row)
                 else:
                     # Convert times to AM/PM only for display
-                    sched_in_display = self.format_time(sched_in)
-                    sched_out_display = self.format_time(sched_out)
-                    work_in_display = self.format_time(work_in)
-                    work_off_display = self.format_time(work_off)
+                    sched_in_display = format_time(sched_in)
+                    sched_out_display = format_time(sched_out)
+                    work_in_display = format_time(work_in)
+                    work_off_display = format_time(work_off)
                     
                     # Scheduled In
                     sched_in_text = "Open" if open_schedule else (sched_in_display if sched_in else "")
@@ -382,7 +373,7 @@ class MainWindow(QWidget):
     def create_work_time_item(self, work_time, scheduled_time, is_work_off=False):
         item = self.create_centered_item(work_time)
         if work_time and scheduled_time:
-            time_difference = self.compare_times(work_time, scheduled_time)
+            time_difference = compare_times(work_time, scheduled_time)
             if is_work_off:
                 if time_difference < 0:
                     item.setBackground(Qt.red)
@@ -434,15 +425,6 @@ class MainWindow(QWidget):
         layout.addStretch()
         container.setLayout(layout)
         return container
-    
-    def compare_times(self, time_str1, time_str2):
-        try:
-            time1 = datetime.strptime(time_str1, "%I:%M %p")
-            time2 = datetime.strptime(time_str2, "%I:%M %p")
-            return (time1 - time2).total_seconds()
-        except ValueError:
-            print(f"Error comparing times: {time_str1} and {time_str2}")
-            return 0
         
     def bold_font(self):
         font = QFont()
@@ -486,15 +468,6 @@ class MainWindow(QWidget):
             self.populate_table()  # Refresh the table with updated data
         except Exception as e:
             self.show_error_message(f"Error recording Work Off: {str(e)}")
-
-    def format_time(self, time_str):
-        if not time_str:
-            return ""
-        try:
-            time_obj = datetime.strptime(time_str, "%H:%M:%S")
-            return time_obj.strftime("%I:%M %p")  # AM/PM format
-        except ValueError:
-            return time_str
 
     def show_error_message(self, message):
         QMessageBox.critical(self, "Error", message)
