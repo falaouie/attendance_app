@@ -27,19 +27,17 @@ class MainWindow(QWidget):
         self.current_datetime = self.time_sync.get_current_datetime()
         self.current_date = self.current_datetime.date()
         print(f"initialized date and time : {self.current_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
-        # Initialize sync parameters
-        self.time_sync_interval = 300  # 5 minutes in seconds
-        self.data_sync_interval = 120 # 2 minutes in seconds
+        # Initialize sync parameters - now just one interval
+        self.sync_interval = 120  # 2 minutes in seconds
         self.retry_interval = 60  # 1 minute in seconds
         self.max_retries = 5
         self.retries = 0
         self.internet_check_interval = 30  # 30 seconds
         self.last_internet_status = is_internet_available()
-        self.last_sync_attempt = self.current_datetime
         
         # Initialize DataSync
         self.data_sync = DataSync(self.current_datetime)
- 
+    
         # Create and show loading screen first
         self.loading_screen = LoadingScreen()
         self.loading_screen.show()
@@ -202,16 +200,11 @@ class MainWindow(QWidget):
         self.clock_timer.timeout.connect(self.update_time)
         self.clock_timer.start(1000)  # 1 second
 
-        # Timer for periodic time syncing
-        self.time_sync_timer = QTimer(self)
-        self.time_sync_timer.timeout.connect(self.periodic_time_sync_attempt)
-        self.time_sync_timer.start(self.time_sync_interval * 1000)
-
-        # Timer for periodic data syncing
-        self.data_sync_timer = QTimer(self)
-        self.data_sync_timer.timeout.connect(self.check_data_sync)
-        self.data_sync_timer.setTimerType(Qt.PreciseTimer)
-        self.data_sync_timer.start(self.data_sync_interval * 1000) 
+        # Single timer for sync operations
+        self.sync_timer = QTimer(self)
+        self.sync_timer.timeout.connect(self.periodic_sync_attempt)
+        self.sync_timer.setTimerType(Qt.PreciseTimer)
+        self.sync_timer.start(self.sync_interval * 1000)
 
         # Timer for periodic internet connection check
         self.internet_check_timer = QTimer(self)
@@ -228,34 +221,35 @@ class MainWindow(QWidget):
             self.current_date = self.current_datetime.date()
             self.populate_table()
 
-    def periodic_time_sync_attempt(self):
+    def periodic_sync_attempt(self):
+        """Combined time and data sync operation"""
         if not is_internet_available():
-            print("No internet connection. Skipping periodic time sync.")
-            self.retry_time_sync()
+            print("No internet connection. Skipping sync.")
+            self.retry_sync()
             return
 
         ntp_time = self.time_sync.sync_with_ntp()
         if ntp_time:
             self.retries = 0  # Reset retry counter on success
-            time_diff = ntp_time - self.current_datetime
             self.current_datetime = ntp_time
-            print(f"Periodic time sync successful at {self.current_datetime}")
+            print(f"Time sync successful at {self.current_datetime}")
             
-            # If time difference is significant, restart the data sync timer
-            if abs(time_diff.total_seconds()) > 1:
-                self.data_sync_timer.start()  # Restart the timer to maintain consistent intervals
+            # Immediately sync data after successful time sync
+            if self.data_sync.sync_data(self.current_datetime):
+                self.populate_table()  # Refresh the display
         else:
             print("Failed to sync time. Starting retry process...")
-            self.retry_time_sync()
+            self.retry_sync()
 
-    def retry_time_sync(self):
+    def retry_sync(self):
+        """Combined retry for both time and data sync"""
         if self.retries < self.max_retries:
             self.retries += 1
             print(f"Retrying sync... Attempt {self.retries}/{self.max_retries}")
             
             if not is_internet_available():
                 print(f"No internet connection during retry attempt {self.retries}. Will retry again...")
-                QTimer.singleShot(self.retry_interval * 1000, self.periodic_time_sync_attempt)
+                QTimer.singleShot(self.retry_interval * 1000, self.periodic_sync_attempt)
                 return
 
             ntp_time = self.time_sync.sync_with_ntp()
@@ -263,9 +257,13 @@ class MainWindow(QWidget):
                 self.retries = 0
                 self.current_datetime = ntp_time
                 print(f"Time sync successful on retry attempt {self.retries}")
+                
+                # Try data sync after successful time sync
+                if self.data_sync.sync_data(self.current_datetime):
+                    self.populate_table()
             else:
                 print(f"Sync failed on retry attempt {self.retries}. Scheduling next retry...")
-                QTimer.singleShot(self.retry_interval * 1000, self.periodic_time_sync_attempt)
+                QTimer.singleShot(self.retry_interval * 1000, self.periodic_sync_attempt)
         else:
             print(f"Maximum retry attempts ({self.max_retries}) reached. Falling back to system time...")
             self.time_sync.fallback_to_system_time()
@@ -275,7 +273,7 @@ class MainWindow(QWidget):
         current_internet_status = is_internet_available()
         if current_internet_status and not self.last_internet_status:
             print("Internet connection restored. Initiating sync...")
-            self.sync_time_and_data()
+            self.periodic_sync_attempt()  # Use the combined sync method
         self.last_internet_status = current_internet_status
 
     def check_data_sync(self):
@@ -477,9 +475,8 @@ class MainWindow(QWidget):
 
     def close_application(self):
         self.clock_timer.stop()
-        self.time_sync_timer.stop()  # Updated name
-        self.data_sync_timer.stop()  # Updated name
-        self.internet_check_timer.stop()  # Add this to properly clean up
+        self.sync_timer.stop()
+        self.internet_check_timer.stop()
         QApplication.quit()
 
     def closeEvent(self, event):
