@@ -1,16 +1,18 @@
 import os
 import sys
 from pytz import timezone
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox, QSystemTrayIcon
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QMessageBox, QSystemTrayIcon
 from PyQt5.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView
-from PyQt5.QtGui import QPixmap, QFont, QIcon
+from PyQt5.QtGui import QPixmap, QIcon
 from PyQt5.QtCore import QTimer, Qt
 from datetime import datetime, timedelta
 from loading import LoadingScreen, LoadingSignals
 from internet_conn import is_internet_available
 from db_functions import fetch_all_staff, update_work_in, update_work_off
 from Classes import TimeSync, DataSync, NTPSyncWorker
-from utilities import format_time, compare_times, resource_path, setup_system_tray, minimize_to_taskbar
+from utilities import format_time, resource_path, setup_system_tray, minimize_to_taskbar
+from ui_builders import create_centered_item, create_work_time_item, create_centered_widget, bold_font
+
 
 class MainWindow(QWidget):
     
@@ -329,95 +331,65 @@ class MainWindow(QWidget):
                     
                     # Scheduled In
                     sched_in_text = "Open" if open_schedule else (sched_in_display if sched_in else "")
-                    self.table.setItem(row, 1, self.create_centered_item(sched_in_text))
+                    self.table.setItem(row, 1, create_centered_item(sched_in_text))
 
                     # Work In
                     if not work_in:
                         self.create_work_in_button(row, staff_id, first_name, last_name, row_height)
                     else:
-                        self.table.setItem(row, 2, self.create_work_time_item(work_in_display, sched_in_display if sched_in and not open_schedule else None))
+                        self.table.setItem(row, 2, create_work_time_item(work_in_display, sched_in_display if sched_in and not open_schedule else None))
 
                     # Scheduled Out
                     sched_out_text = "Open" if open_schedule else (sched_out_display if sched_out else "")
-                    self.table.setItem(row, 3, self.create_centered_item(sched_out_text))
+                    self.table.setItem(row, 3, create_centered_item(sched_out_text))
 
                     # Work Off
                     if work_in and not work_off:
                         self.create_work_off_button(row, staff_id, first_name, last_name, work_in, row_height)
                     elif work_off:
-                        self.table.setItem(row, 4, self.create_work_time_item(work_off_display, sched_out_display if sched_out and not open_schedule else None, is_work_off=True))
+                        self.table.setItem(row, 4, create_work_time_item(work_off_display, sched_out_display if sched_out and not open_schedule else None, is_work_off=True))
 
                     # Hours
                     if hours_worked is not None:
                         hours_display = f"{hours_worked:.2f}"  # Display with 2 decimal places
                     else:
                         hours_display = ""
-                    hours_item = self.create_centered_item(hours_display)
+                    hours_item = create_centered_item(hours_display)
                     self.table.setItem(row, 5, hours_item)
 
         except Exception as e:
             self.show_error_message(f"Error populating table: {str(e)}")
-
-    def create_work_time_item(self, work_time, scheduled_time, is_work_off=False):
-        item = self.create_centered_item(work_time)
-        if work_time and scheduled_time:
-            time_difference = compare_times(work_time, scheduled_time)
-            if is_work_off:
-                if time_difference < 0:
-                    item.setBackground(Qt.red)
-                else:
-                    item.setBackground(Qt.green)
-            else:
-                if time_difference > 0:
-                    item.setBackground(Qt.red)
-                else:
-                    item.setBackground(Qt.green)
-            item.setForeground(Qt.white)
-        else:
-            item.setForeground(Qt.black)
-        item.setFont(self.bold_font())
-        return item
 
     def display_day_off(self, row):
         self.table.setSpan(row, 1, 1, 5)
         day_off_item = QTableWidgetItem("DAY OFF")
         day_off_item.setTextAlignment(Qt.AlignCenter)
         day_off_item.setBackground(Qt.lightGray)
-        day_off_item.setFont(self.bold_font())
+        day_off_item.setFont(bold_font())
         self.table.setItem(row, 1, day_off_item)
-
-    def create_centered_item(self, text):
-        item = QTableWidgetItem(text)
-        item.setTextAlignment(Qt.AlignCenter)
-        return item
 
     def create_work_in_button(self, row, staff_id, first_name, last_name, row_height):
         work_in_button = QPushButton(f"Work In")
         work_in_button.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
         work_in_button.setFixedSize(120, int(row_height * 0.8))
         work_in_button.clicked.connect(lambda: self.handle_work_in(row, staff_id))
-        self.table.setCellWidget(row, 2, self.create_centered_widget(work_in_button))
+        self.table.setCellWidget(row, 2, create_centered_widget(work_in_button))
 
     def create_work_off_button(self, row, staff_id, first_name, last_name, work_in_time, row_height):
         work_off_button = QPushButton(f"Work Off")
         work_off_button.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
         work_off_button.setFixedSize(120, int(row_height * 0.8))
         work_off_button.clicked.connect(lambda: self.handle_work_off(row, staff_id, work_in_time))
-        self.table.setCellWidget(row, 4, self.create_centered_widget(work_off_button))
+        self.table.setCellWidget(row, 4, create_centered_widget(work_off_button))
 
-    def create_centered_widget(self, widget):
-        container = QWidget()
-        layout = QHBoxLayout(container)
-        layout.addStretch()
-        layout.addWidget(widget)
-        layout.addStretch()
-        container.setLayout(layout)
-        return container
-        
-    def bold_font(self):
-        font = QFont()
-        font.setBold(True)
-        return font
+    # def create_centered_widget(self, widget):
+    #     container = QWidget()
+    #     layout = QHBoxLayout(container)
+    #     layout.addStretch()
+    #     layout.addWidget(widget)
+    #     layout.addStretch()
+    #     container.setLayout(layout)
+    #     return container
 
     def handle_work_in(self, row, staff_id):
         try:
@@ -483,4 +455,3 @@ class MainWindow(QWidget):
         event.ignore()
         minimize_to_taskbar(self)
         self.tray_icon.showMessage("Silver Attendance", "Application minimized to taskbar", QSystemTrayIcon.Information, 2000)
-        
