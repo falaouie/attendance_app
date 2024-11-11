@@ -41,3 +41,6 @@ def setup_system_tray(self):
         exit_action.triggered.connect(self.close_application)
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.show()
+
+def minimize_to_taskbar(self):
+        self.showMinimized()

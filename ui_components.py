@@ -10,7 +10,7 @@ from loading import LoadingScreen, LoadingSignals
 from internet_conn import is_internet_available
 from db_functions import fetch_all_staff, update_work_in, update_work_off
 from Classes import TimeSync, DataSync, NTPSyncWorker
-from utilities import format_time, compare_times, resource_path, setup_system_tray
+from utilities import format_time, compare_times, resource_path, setup_system_tray, minimize_to_taskbar
 
 class MainWindow(QWidget):
     
@@ -481,8 +481,6 @@ class MainWindow(QWidget):
 
     def closeEvent(self, event):
         event.ignore()
-        self.minimize_to_taskbar()
+        minimize_to_taskbar(self)
         self.tray_icon.showMessage("Silver Attendance", "Application minimized to taskbar", QSystemTrayIcon.Information, 2000)
-
-    def minimize_to_taskbar(self):
-        self.showMinimized()
+        
