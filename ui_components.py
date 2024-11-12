@@ -12,6 +12,7 @@ from db_functions import update_work_in, update_work_off
 from Classes import TimeSync, DataSync, NTPSyncWorker
 from utilities import resource_path, setup_system_tray, minimize_to_taskbar
 from table_manager import TablePopulator
+from work_time_manager import WorkTimeManager
 
 class MainWindow(QWidget):
     
@@ -28,6 +29,7 @@ class MainWindow(QWidget):
         self.current_datetime = self.time_sync.get_current_datetime()
         self.current_date = self.current_datetime.date()
         print(f"initialized date and time : {self.current_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
+        self.work_time_manager = WorkTimeManager(self.current_datetime, self.beirut_tz)
         # Initialize sync parameters - now just one interval
         self.sync_interval = 120  # 2 minutes in seconds
         self.retry_interval = 60  # 1 minute in seconds
@@ -215,6 +217,7 @@ class MainWindow(QWidget):
 
     def update_time(self):
         self.current_datetime = self.time_sync.increment_time()
+        self.work_time_manager.update_current_datetime(self.current_datetime)
         date_str = self.current_datetime.strftime("%A %d/%m/%Y")
         time_str = self.current_datetime.strftime("%I:%M:%S %p")
         self.datetime_label.setText(f"{date_str}\n{time_str}")
@@ -313,42 +316,42 @@ class MainWindow(QWidget):
         )
 
     def handle_work_in(self, row, staff_id):
-        try:
-            current_time = self.current_datetime.strftime("%H:%M:%S")  # 24-hour format
-            update_work_in(staff_id, current_time, self.current_date.strftime("%Y-%m-%d"))
-            self.populate_table()  # Refresh the table with updated data
-        except Exception as e:
-            self.show_error_message(f"Error recording Work In: {str(e)}")
+        if self.work_time_manager.handle_work_in(row, staff_id, self.show_error_message):
+            self.populate_table()
 
     def handle_work_off(self, row, staff_id, work_in_time):
-        try:
-            if work_in_time is None:
-                raise ValueError("Work In time is not available")
+        if self.work_time_manager.handle_work_off(row, staff_id, work_in_time, self.show_error_message):
+            self.populate_table()
 
-            # Ensure work_in_time is timezone-aware
-            work_in_dt = datetime.strptime(work_in_time, "%H:%M:%S")
-            work_in_full = self.beirut_tz.localize(datetime.combine(self.current_date, work_in_dt.time()))
+    # def handle_work_off(self, row, staff_id, work_in_time):
+    #     try:
+    #         if work_in_time is None:
+    #             raise ValueError("Work In time is not available")
 
-            # Ensure current_datetime is timezone-aware
-            current_datetime = self.beirut_tz.localize(self.current_datetime.replace(tzinfo=None))
+    #         # Ensure work_in_time is timezone-aware
+    #         work_in_dt = datetime.strptime(work_in_time, "%H:%M:%S")
+    #         work_in_full = self.beirut_tz.localize(datetime.combine(self.current_date, work_in_dt.time()))
 
-            # Calculate the time difference
-            time_diff = current_datetime - work_in_full
+    #         # Ensure current_datetime is timezone-aware
+    #         current_datetime = self.beirut_tz.localize(self.current_datetime.replace(tzinfo=None))
 
-            # Handle cases where work spans midnight
-            if time_diff.days < 0:
-                time_diff = timedelta(days=1) + time_diff
+    #         # Calculate the time difference
+    #         time_diff = current_datetime - work_in_full
 
-            # Calculate hours worked
-            hours_worked = time_diff.total_seconds() / 3600
+    #         # Handle cases where work spans midnight
+    #         if time_diff.days < 0:
+    #             time_diff = timedelta(days=1) + time_diff
 
-            # Format work_off_time in 24-hour format for database
-            work_off_time = current_datetime.strftime("%H:%M:%S")
+    #         # Calculate hours worked
+    #         hours_worked = time_diff.total_seconds() / 3600
 
-            update_work_off(staff_id, work_off_time, hours_worked, self.current_date.strftime("%Y-%m-%d"))
-            self.populate_table()  # Refresh the table with updated data
-        except Exception as e:
-            self.show_error_message(f"Error recording Work Off: {str(e)}")
+    #         # Format work_off_time in 24-hour format for database
+    #         work_off_time = current_datetime.strftime("%H:%M:%S")
+
+    #         update_work_off(staff_id, work_off_time, hours_worked, self.current_date.strftime("%Y-%m-%d"))
+    #         self.populate_table()  # Refresh the table with updated data
+    #     except Exception as e:
+    #         self.show_error_message(f"Error recording Work Off: {str(e)}")
 
     def show_error_message(self, message):
         QMessageBox.critical(self, "Error", message)
