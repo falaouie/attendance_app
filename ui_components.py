@@ -9,13 +9,14 @@ from work_time_manager import WorkTimeManager
 from sync_manager import SyncManager
 from loading_manager import LoadingManager
 from window_manager import WindowManager
+from signal_handler import SignalHandler
 
 class MainWindow(QWidget):
     
     def __init__(self):
         super().__init__()
         self.loading_signals = LoadingSignals()
-        self.loading_signals.finished.connect(self.finish_loading)
+        # self.loading_signals.finished.connect(self.finish_loading)
         
         # Initialize TimeSync
         self.time_sync = TimeSync()
@@ -26,6 +27,7 @@ class MainWindow(QWidget):
 
         # Initialize managers
         self.window_manager = WindowManager(self)
+        self.signal_handler = SignalHandler(self)
         self.work_time_manager = WorkTimeManager(self.current_datetime, self.beirut_tz)
         
         self.last_internet_status = is_internet_available()
@@ -34,17 +36,15 @@ class MainWindow(QWidget):
         self.data_sync = DataSync(self.current_datetime)
         self.sync_manager = SyncManager(self.time_sync, self.data_sync, self.current_datetime)
 
-        # Connect signals
-        self.sync_manager.sync_complete.connect(self.handle_sync_complete)
-        self.sync_manager.time_updated.connect(self.handle_time_update)
-        self.sync_manager.time_incremented.connect(self.handle_time_increment)
-
         # Create loading screen and manager
         self.loading_screen = LoadingScreen()
         self.loading_manager = LoadingManager(self.loading_screen, self)
+
+        # Set up all signals
+        self.signal_handler.setup_signals()
+
+        # Show loading screen and start sequence
         self.loading_screen.show()
-        
-        # Start loading sequence
         QTimer.singleShot(100, self.loading_manager.start_loading_sequence)
 
     def handle_time_increment(self, new_datetime):
@@ -121,23 +121,6 @@ class MainWindow(QWidget):
         """Set up the system tray icon"""
         self.window_manager.setup_system_tray()
 
-    def check_data_sync(self):
-        """Handler for data sync timer"""
-        try:
-            if self.data_sync.check_and_sync(self.current_datetime):
-                self.table_manager.refresh(force=True)
-        except Exception as e:
-            print(f"Error during periodic data sync: {str(e)}")
-
-    def sync_data(self):
-        """Method for manual data sync"""
-        try:
-            if self.data_sync.sync_data(self.current_datetime):
-                self.table_manager.refresh(force=True)
-        except Exception as e:
-            print(f"Error during manual data sync: {str(e)}")
-
-
     def handle_work_in(self, row, staff_id):
         if self.work_time_manager.handle_work_in(row, staff_id, self.show_error_message):
             self.table_manager.refresh(force=True)
@@ -148,6 +131,22 @@ class MainWindow(QWidget):
 
     def show_error_message(self, message):
         QMessageBox.critical(self, "Error", message)
+    
+    def sync_data(self):
+        """Method for manual data sync"""
+        try:
+            if self.data_sync.sync_data(self.current_datetime):
+                self.table_manager.refresh(force=True)
+        except Exception as e:
+            print(f"Error during manual data sync: {str(e)}")
+
+    def check_data_sync(self):
+        """Handler for data sync timer"""
+        try:
+            if self.data_sync.check_and_sync(self.current_datetime):
+                self.table_manager.refresh(force=True)
+        except Exception as e:
+            print(f"Error during periodic data sync: {str(e)}")
 
     def show_window(self):
         """Show and maximize the window"""
@@ -163,6 +162,7 @@ class MainWindow(QWidget):
         )
 
     def close_application(self):
+        """Clean shutdown of the application"""
         self.sync_manager.stop_timers()
         QApplication.quit()
         
