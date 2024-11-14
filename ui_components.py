@@ -206,16 +206,8 @@ class MainWindow(QWidget):
         self.datetime_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(self.datetime_label)
 
-        # Create table
+        # Create table and set up its properties
         self.table = QTableWidget(self)
-        self.table_manager = TableManager(self.table, self.current_datetime, self.beirut_tz)
-        self.table_manager.set_callbacks(
-            handle_work_in_callback=self.handle_work_in,
-            handle_work_off_callback=self.handle_work_off,
-            show_error_callback=self.show_error_message
-        )
-        # Initial table refresh
-        self.table_manager.refresh(force=True)
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels(["Name", "Scheduled In", "Work In", "Scheduled Out", "Work Off", "Hours"])
         header = self.table.horizontalHeader()
@@ -223,8 +215,19 @@ class MainWindow(QWidget):
         self.table.verticalHeader().setVisible(False)
         main_layout.addWidget(self.table)
 
+        # Initialize TableManager
+        self.table_manager = TableManager(self.table, self.current_datetime, self.beirut_tz)
+        self.table_manager.set_callbacks(
+            handle_work_in_callback=self.handle_work_in,
+            handle_work_off_callback=self.handle_work_off,
+            show_error_callback=self.show_error_message
+        )
+
+        # Set the layout
         self.setLayout(main_layout)
-        # self.populate_table()
+
+        # FINALLY refresh the table
+        self.table_manager.refresh(force=True)
 
     def check_data_sync(self):
         """Handler for data sync timer"""
@@ -275,3 +278,4 @@ class MainWindow(QWidget):
         event.ignore()
         minimize_to_taskbar(self)
         self.tray_icon.showMessage("Silver Attendance", "Application minimized to taskbar", QSystemTrayIcon.Information, 2000)
+        
