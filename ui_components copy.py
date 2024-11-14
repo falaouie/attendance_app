@@ -20,6 +20,8 @@ class MainWindow(QWidget):
         super().__init__()
         self.loading_signals = LoadingSignals()
         self.loading_signals.finished.connect(self.finish_loading)
+        # self.loading_signals.progress.connect(self.update_loading_progress)
+        # self.loading_signals.status.connect(self.update_loading_status)
         
         # Initialize TimeSync
         self.time_sync = TimeSync()
