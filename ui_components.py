@@ -1,18 +1,14 @@
-import os
-import sys
 from pytz import timezone
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QMessageBox, QSystemTrayIcon, QMenu
-from PyQt5.QtWidgets import QLabel, QTableWidget, QHeaderView
-from PyQt5.QtGui import QPixmap, QIcon
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtWidgets import QApplication, QWidget, QMessageBox
+from PyQt5.QtCore import QTimer
 from loading import LoadingScreen, LoadingSignals
 from internet_conn import is_internet_available
 from Classes import TimeSync, DataSync
-from utilities import resource_path, minimize_to_taskbar
 from table_manager import TableManager
 from work_time_manager import WorkTimeManager
 from sync_manager import SyncManager
 from loading_manager import LoadingManager
+from window_manager import WindowManager
 
 class MainWindow(QWidget):
     
@@ -27,6 +23,9 @@ class MainWindow(QWidget):
         self.current_datetime = self.time_sync.get_current_datetime()
         self.current_date = self.current_datetime.date()
         print(f"initialized date and time : {self.current_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
+
+        # Initialize managers
+        self.window_manager = WindowManager(self)
         self.work_time_manager = WorkTimeManager(self.current_datetime, self.beirut_tz)
         
         self.last_internet_status = is_internet_available()
@@ -99,53 +98,28 @@ class MainWindow(QWidget):
         self.loading_signals.finished.emit()
 
     def initUI(self):
-        self.setWindowTitle("Silver Attendance")
+        """Initialize the user interface"""
+        # Set up the window and layout
+        self.window_manager.setup_window()
         
-        # Set window icon
-        if hasattr(sys, '_MEIPASS'):
-            icon_path = os.path.join(sys._MEIPASS, 'images', 'sys_icon.ico')
-        else:
-            icon_path = os.path.join(os.path.dirname(__file__), 'images', 'sys_icon.ico')
-        self.setWindowIcon(QIcon(icon_path))
-
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint)
+        # Initialize table manager with the table from window manager
+        self.table_manager = TableManager(self.window_manager.table, 
+                                        self.current_datetime, 
+                                        self.beirut_tz)
         
-        main_layout = QVBoxLayout()
-
-        # Logo
-        logo_label = QLabel(self)
-        pixmap = QPixmap(resource_path("images/logo.png"))
-        logo_label.setPixmap(pixmap)
-        logo_label.setAlignment(Qt.AlignCenter)
-        main_layout.addWidget(logo_label)
-
-        # Date and time display
-        self.datetime_label = QLabel()
-        self.datetime_label.setAlignment(Qt.AlignCenter)
-        main_layout.addWidget(self.datetime_label)
-
-        # Create table and set up its properties
-        self.table = QTableWidget(self)
-        self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels(["Name", "Scheduled In", "Work In", "Scheduled Out", "Work Off", "Hours"])
-        header = self.table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.Stretch)
-        self.table.verticalHeader().setVisible(False)
-        main_layout.addWidget(self.table)
-
-        # Initialize TableManager
-        self.table_manager = TableManager(self.table, self.current_datetime, self.beirut_tz)
+        # Set up table manager callbacks
         self.table_manager.set_callbacks(
             handle_work_in_callback=self.handle_work_in,
             handle_work_off_callback=self.handle_work_off,
             show_error_callback=self.show_error_message
         )
 
-        # Set the layout
-        self.setLayout(main_layout)
-
-        # FINALLY refresh the table
+        # Initial table refresh
         self.table_manager.refresh(force=True)
+
+    def setup_system_tray(self):
+        """Set up the system tray icon"""
+        self.window_manager.setup_system_tray()
 
     def check_data_sync(self):
         """Handler for data sync timer"""
@@ -176,52 +150,19 @@ class MainWindow(QWidget):
         QMessageBox.critical(self, "Error", message)
 
     def show_window(self):
-        # Refresh window icon
-        if hasattr(sys, '_MEIPASS'):
-            icon_path = os.path.join(sys._MEIPASS, 'images', 'sys_icon.ico')
-        else:
-            icon_path = os.path.join(os.path.dirname(__file__), 'images', 'sys_icon.ico')
-        self.setWindowIcon(QIcon(icon_path))
+        """Show and maximize the window"""
+        self.window_manager.show_window()
 
-        self.showNormal()  # Restore the window if it was minimized
-        self.showMaximized()  # Maximize the window
-        self.activateWindow()  # Bring the window to the foreground
-        self.raise_()  # Raise the window to the top of the window stack 
-
-    def setup_system_tray(self):
-        """Set up the system tray icon and menu"""
-        # Create the system tray icon
-        self.tray_icon = QSystemTrayIcon(self)
-        
-        if hasattr(sys, '_MEIPASS'):
-            icon_path = os.path.join(sys._MEIPASS, 'images', 'sys_icon.ico')
-        else:
-            icon_path = os.path.join(os.path.dirname(__file__), 'images', 'sys_icon.ico')
-        
-        self.tray_icon.setIcon(QIcon(icon_path))
-        
-        # Create the menu
-        tray_menu = QMenu()
-        
-        # Add menu items
-        show_action = tray_menu.addAction("Show")
-        show_action.triggered.connect(self.show_window)
-        
-        quit_action = tray_menu.addAction("Quit")
-        quit_action.triggered.connect(self.close_application)
-        
-        # Set the menu for the tray icon
-        self.tray_icon.setContextMenu(tray_menu)
-        
-        # Show the tray icon
-        self.tray_icon.show()
+    def closeEvent(self, event):
+        """Handle window close event"""
+        event.ignore()
+        self.window_manager.minimize_to_taskbar()
+        self.window_manager.show_tray_message(
+            "Silver Attendance",
+            "Application minimized to taskbar"
+        )
 
     def close_application(self):
         self.sync_manager.stop_timers()
         QApplication.quit()
-
-    def closeEvent(self, event):
-        event.ignore()
-        minimize_to_taskbar(self)
-        self.tray_icon.showMessage("Silver Attendance", "Application minimized to taskbar", QSystemTrayIcon.Information, 2000)
         
