@@ -115,7 +115,6 @@ class WindowManager:
     def minimize_to_taskbar(self):
         """Minimize the window to taskbar and system tray"""
         self.main_window.setWindowState(self.main_window.windowState() | Qt.WindowMinimized)
-        # self.main_window.hide()  # This hides from taskbar but keeps in system tray
 
     def show_tray_message(self, title, message, icon=QSystemTrayIcon.Information, duration=2000):
         """Show a system tray message"""
