@@ -113,10 +113,20 @@ class WindowManager:
         self.main_window.raise_()  # Raise the window to the top of the window stack
 
     def minimize_to_taskbar(self):
-        """Minimize the window to system tray"""
-        self.main_window.hide()
+        """Minimize the window to taskbar and system tray"""
+        self.main_window.setWindowState(self.main_window.windowState() | Qt.WindowMinimized)
+        self.main_window.hide()  # This hides from taskbar but keeps in system tray
 
     def show_tray_message(self, title, message, icon=QSystemTrayIcon.Information, duration=2000):
         """Show a system tray message"""
         if self.tray_icon:
             self.tray_icon.showMessage(title, message, icon, duration)
+
+    def closeEvent(self, event):
+        """Handle window close event"""
+        event.ignore()
+        self.main_window.minimize_to_taskbar()
+        self.main_window.show_tray_message(
+            "Silver Attendance",
+            "Application minimized to taskbar"
+        )

@@ -46,20 +46,19 @@ class SignalHandler:
             self.main_window.current_date = self.main_window.current_datetime.date()
             self.main_window.table_manager.refresh()
 
-    def handle_ntp_sync_complete(self, ntp_time):
-        """Handler for NTP sync completion"""
-        if ntp_time:
-            self.main_window.current_datetime = ntp_time
-            print(f"NTP sync successful: {self.main_window.current_datetime}")
-        else:
-            print("NTP sync failed, using system time")
+    # def handle_ntp_sync_complete(self, ntp_time):
+    #     """Handler for NTP sync completion"""
+    #     if ntp_time:
+    #         self.main_window.current_datetime = ntp_time
+    #     else:
+    #         print("NTP sync failed, using system time")
         
-        # Clean up the worker
-        if hasattr(self.main_window, 'ntp_worker'):
-            self.main_window.ntp_worker.deleteLater()
+    #     # Clean up the worker
+    #     if hasattr(self.main_window, 'ntp_worker'):
+    #         self.main_window.ntp_worker.deleteLater()
         
-        # Signal that loading is complete
-        self.main_window.loading_signals.finished.emit()
+    #     # Signal that loading is complete
+    #     self.main_window.loading_signals.finished.emit()
 
     def update_datetime_display(self):
         """Update the datetime display in the UI"""

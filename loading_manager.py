@@ -1,5 +1,4 @@
 from PyQt5.QtCore import QTimer
-from utilities import setup_system_tray
 from Classes import NTPSyncWorker 
 
 class LoadingManager:

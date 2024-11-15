@@ -58,7 +58,6 @@ class SyncManager(QObject):
         if ntp_time:
             self.retries = 0  # Reset retry counter on success
             self.current_datetime = ntp_time
-            print(f"Time sync successful at {self.current_datetime}")
             self.time_updated.emit(ntp_time)
             
             # Immediately sync data after successful time sync

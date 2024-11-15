@@ -1,9 +1,7 @@
 from pytz import timezone
-from PyQt5.QtWidgets import QApplication, QWidget, QMessageBox
+from PyQt5.QtWidgets import QApplication, QWidget, QMessageBox, QSystemTrayIcon
 from PyQt5.QtCore import QTimer
-from loading import LoadingScreen, LoadingSignals
-from internet_conn import is_internet_available
-from Classes import TimeSync, DataSync
+from Classes import TimeSync, DataSync, LoadingScreen, LoadingSignals
 from table_manager import TableManager
 from work_time_manager import WorkTimeManager
 from sync_manager import SyncManager
@@ -111,12 +109,14 @@ class MainWindow(QWidget):
             print(f"Error during manual data sync: {str(e)}")
 
     def closeEvent(self, event):
-        """Handle window close event"""
+        """Handle window close event to minimize to both taskbar and system tray"""
         event.ignore()
         self.window_manager.minimize_to_taskbar()
         self.window_manager.show_tray_message(
             "Silver Attendance",
-            "Application minimized to taskbar"
+            "Application minimized to taskbar and system tray",
+            QSystemTrayIcon.Information,
+            2000
         )
 
     def close_application(self):
