@@ -26,7 +26,7 @@ def fetch_all_staff(target_date=None):
             AND staff_schedule.day_of_week = ?
         LEFT JOIN temp_schedule ON staff_tbl.staff_id = temp_schedule.staff_id
         LEFT JOIN staff_attendance ON staff_tbl.staff_id = staff_attendance.staff_id
-            AND staff_attendance.date = ?
+            AND staff_attendance.work_date = ?
     ''', (day_of_week, target_date))
     
     rows = cursor.fetchall()
@@ -38,9 +38,9 @@ def update_work_in(staff_id, work_in_time, current_date):
     cursor = conn.cursor()
     
     cursor.execute('''
-        INSERT INTO staff_attendance (staff_id, date, work_in)
+        INSERT INTO staff_attendance (staff_id, work_date, work_in)
         VALUES (?, ?, ?)
-        ON CONFLICT(staff_id, date) DO UPDATE SET work_in = ?
+        ON CONFLICT(staff_id, work_date) DO UPDATE SET work_in = ?
     ''', (staff_id, current_date, work_in_time, work_in_time))
     
     conn.commit()
@@ -54,7 +54,7 @@ def update_work_off(staff_id, work_off_time, hours_worked, current_date):
         cursor.execute('''
             UPDATE staff_attendance
             SET work_off = ?, hours_worked = ?
-            WHERE staff_id = ? AND date = ?
+            WHERE staff_id = ? AND work_date = ?
         ''', (work_off_time, hours_worked, staff_id, current_date))
         conn.commit()
     except Exception as e:

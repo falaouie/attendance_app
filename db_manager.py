@@ -48,12 +48,12 @@ def init_db():
         CREATE TABLE IF NOT EXISTS staff_attendance (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             staff_id INTEGER NOT NULL,
-            date TEXT NOT NULL,
+            work_date TEXT NOT NULL,
             work_in TEXT,
             work_off TEXT,
             hours_worked REAL,
             FOREIGN KEY (staff_id) REFERENCES staff_tbl(staff_id),
-            UNIQUE(staff_id, date)
+            UNIQUE(staff_id, work_date)
         )
     ''')
 
