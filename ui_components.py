@@ -8,10 +8,14 @@ from sync_manager import SyncManager
 from loading_manager import LoadingManager
 from window_manager import WindowManager
 from signal_handler import SignalHandler
+from internet_conn import is_internet_available
 
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
+        # Initialize is internet available
+        self.is_internet_available = is_internet_available
+        
         # Initialize signals
         self.loading_signals = LoadingSignals()
         
