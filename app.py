@@ -16,8 +16,8 @@ def show_first_time_setup_error(parent):
     QMessageBox.critical(
         parent,
         "No Internet Connection",
-        "This is the first time running the application.\n"
-        "Internet connection is required for first-time setup.\n"
+        # "This is the first time running the application.\n"
+        "Internet connection is required for first time setup.\n"
         "Please connect to the internet and restart the application.",
         QMessageBox.Ok
     )
