@@ -27,6 +27,7 @@ def fetch_all_staff(target_date=None):
         LEFT JOIN temp_schedule ON staff_tbl.staff_id = temp_schedule.staff_id
         LEFT JOIN staff_attendance ON staff_tbl.staff_id = staff_attendance.staff_id
             AND staff_attendance.work_date = ?
+        ORDER BY staff_tbl.first_name ASC
     ''', (day_of_week, target_date))
     
     rows = cursor.fetchall()
